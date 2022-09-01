@@ -1,6 +1,7 @@
 package jpql;
 
 import javax.persistence.*;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,14 +35,38 @@ public class JpaMain {
 //
 //            em.persist(member);
             
-            //JPQL 기본함수 파트 
+//            //JPQL 기본함수 파트
+//            Member member1 = new Member();
+//            member1.setUsername("관리자1");
+//            em.persist(member1);
+//
+//            Member member2 = new Member();
+//            member2.setUsername("관리자2");
+//            em.persist(member2);
+
+            //JPQL 페치 조인 파트
+            Team teamA = new Team();
+            teamA.setName("팀A");
+            em.persist(teamA);
+
+            Team teamB = new Team();
+            teamB.setName("팀B");
+            em.persist(teamB);
+
             Member member1 = new Member();
-            member1.setUsername("관리자1");
+            member1.setUsername("회원1");
+            member1.setTeam(teamA);
             em.persist(member1);
 
             Member member2 = new Member();
-            member2.setUsername("관리자2");
+            member2.setUsername("회원2");
+            member2.setTeam(teamA);
             em.persist(member2);
+
+            Member member3 = new Member();
+            member3.setUsername("회원3");
+            member3.setTeam(teamB);
+            em.persist(member3);
 
 
         //    TypedQuery<Member> query1 = em.createQuery("select m from Member m", Member.class); // 반환 타입이 명확할 때 사용
@@ -190,13 +215,63 @@ public class JpaMain {
 //            for (Integer s : result) {
 //                System.out.println("s = "+ s);
 //            }
-            String query = "select function('group_concat', m.username) from Member m ";
+//            String query = "select function('group_concat', m.username) from Member m ";
+//
+//            List<String> result = em.createQuery(query, String.class)
+//                    .getResultList();
+//
+//            for (String s : result) {
+//                System.out.println("s = "+ s);
+//            }
 
-            List<String> result = em.createQuery(query, String.class)
+//            //단일 값 연관 경로: 묵시적 내부 조인 발생, 탐색O // 실무에서는 조심히 사용해야 함. 튜닝이 어려움.
+//            String query = "select m.team From Member m";
+//
+//            List<Team> result = em.createQuery(query, Team.class)
+//                    .getResultList();
+
+            // 컬렉션 값 연관 경로: 묵시적 내부 조인 발생, 탐색x
+//            String query = "select t.members From Team t";
+//
+//            Collection result = em.createQuery(query, Collection.class)
+//                    .getResultList();
+//
+//            for (Object o : result) {
+//                System.out.println("s = "+ o);
+//            }
+            // 묵시적 내부 조인은 실무에서 사용하지 말고 명시적 조인을 사용하자!!!
+
+//            String query = "select m From Member m ";   // 이렇게 하면 쿼리가 3번 나간다.
+//            //회원1, 팀A(SQL)
+//            //회원2, 팀A(1차캐시)
+//            //회원3, 팀B(SQL)
+//
+//            //회원 100명 -> N + 1 문제 발생.
+//            // N + 1 문제를 해결하기 위해서는 '페치 조인'
+
+            // 페치 조인
+//            String query = "select m from Member m join fetch m.team";
+//
+//            List<Member> result = em.createQuery(query, Member.class)
+//                    .getResultList();
+//
+//            for (Member member : result) {
+//                System.out.println("username = " + member.getUsername() + ", " +
+//                        "teamName = " + member.getTeam().getName());
+//            }
+
+            // 컬렉션 페치 조인   * 일대다 관계 조인은 데이터가 뻥튀기 될 수 있다!!! * 다대일 관계는 데이터가 뻥튀기 x
+            String query = "select t from Team t join fetch t.members where t.name = '팀A'";
+
+            List<Team> result = em.createQuery(query, Team.class)
                     .getResultList();
 
-            for (String s : result) {
-                System.out.println("s = "+ s);
+            for(Team team : result) {
+                System.out.println("team = " + team.getName() + ", team = " + team);
+                for (Member member : team.getMembers()) {
+                    //페치 조인으로 팀과 회원을 함께 조회해서 지연 로딩 발생 안함
+                    System.out.println("-> username = " + member.getUsername()+ ", member = " + member);
+                }
             }
 
             tx.commit();
