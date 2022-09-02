@@ -249,7 +249,7 @@ public class JpaMain {
 //            //회원 100명 -> N + 1 문제 발생.
 //            // N + 1 문제를 해결하기 위해서는 '페치 조인'
 
-            // 페치 조인
+            // 페치 조인 실무에서 많이 씀!
 //            String query = "select m from Member m join fetch m.team";
 //
 //            List<Member> result = em.createQuery(query, Member.class)
@@ -257,22 +257,108 @@ public class JpaMain {
 //
 //            for (Member member : result) {
 //                System.out.println("username = " + member.getUsername() + ", " +
-//                        "teamName = " + member.getTeam().getName());
+//                        "teamName = " + member.getTeam().getName());  // member.getTeam().getName()) 는 프록시가 아닌 실제 데이터를 담는다.
 //            }
 
-            // 컬렉션 페치 조인   * 일대다 관계 조인은 데이터가 뻥튀기 될 수 있다!!! * 다대일 관계는 데이터가 뻥튀기 x
-            String query = "select t from Team t join fetch t.members where t.name = '팀A'";
+//            // 컬렉션 페치 조인   * 일대다 관계 조인은 데이터가 뻥튀기 될 수 있다!!! * 다대일 관계는 데이터가 뻥튀기 x
+//            String query = "select distinct t from Team t join fetch t.members ";
+//
+//            List<Team> result = em.createQuery(query, Team.class)
+//                    .getResultList();
+//
+//            System.out.println("result = " + result.size());
+//
+//            for(Team team : result) {
+//                System.out.println("team = " + team.getName() + ", team = " + team);
+//                for (Member member : team.getMembers()) {
+//                    //페치 조인으로 팀과 회원을 함께 조회해서 지연 로딩 발생 안함
+//                    System.out.println("-> username = " + member.getUsername()+ ", member = " + member);
+//                }
+//            }
 
-            List<Team> result = em.createQuery(query, Team.class)
+            // 컬렉션 페치 조인의 한계
+            // 페치 조인 대상에는 별칭을 줄 수 없다./ 단! 하이버네이트는 가능하다 그러나 가급적 사용X/ 별칭은 안 쓰는게 맞다!
+            // 둘 이상의 컬렉션은 페치 조인 할 수 없다.(데이터 정확성에 문제 생김), 예상치 못한 데이터가 발생할 수 있다!
+            // 컬렉션을 페치 조인하면 페이징 API를 사용할 수 없다!/ 페이징은 철저히 DB 중심적이다.
+            // 일대일, 다대일 같은 단일 값 연관 필드들은 페치 조인해도 페이징 가능
+            // 하이버네이트는 경고 로그를 남기고 메모리에서 페이징(매우 위험)
+//            String query = "select  t from Team t join fetch t.members ";
+//
+//            List<Team> result = em.createQuery(query, Team.class)
+//                    .setFirstResult(0)
+//                    .setMaxResults(1)
+//                    .getResultList();
+            // WARN: HHH000104: firstResult/maxResults specified with collection fetch; applying in memory!
+//            Hibernate:
+//            /* select
+//                t
+//            from
+//                Team t
+//            join
+//                fetch t.members  */ select
+//                    team0_.id as id1_3_0_,
+//                            members1_.id as id1_0_1_,
+//                    team0_.name as name2_3_0_,
+//                            members1_.age as age2_0_1_,
+//                    members1_.TEAM_ID as TEAM_ID5_0_1_,
+//                            members1_.type as type3_0_1_,
+//                    members1_.username as username4_0_1_,
+//                            members1_.TEAM_ID as TEAM_ID5_0_0__,
+//                    members1_.id as id1_0_0__
+//                            from
+//                    Team team0_
+//                    inner join
+//                    Member members1_
+//                    on team0_.id=members1_.TEAM_ID
+            // 컬렉션 페치 조인하는데 페이징 API를 사용하면 결과에 페이징 쿼리문이 없다! 모든 데이터를 가져옴. 데이터가 100만건 이상이라면??
+
+//            System.out.println("result = " + result.size());
+//
+//            for(Team team : result) {
+//                System.out.println("team = " + team.getName() + ", team = " + team);
+//                for (Member member : team.getMembers()) {
+//                    //페치 조인으로 팀과 회원을 함께 조회해서 지연 로딩 발생 안함
+//                    System.out.println("-> username = " + member.getUsername()+ ", member = " + member);
+//                }
+//            }
+
+            // 페치 조인의 특징과 한계
+            // 연관된 엔티티들을 'SQL 한 번'으로 조회 - 성능 최적화
+            // 엔티티에 직접 적용하는 글로벌 로딩 전략보다 우선함
+            // @OneToMany(fetch = FetchType.LAZY) //글로벌 로딩 전략
+            // 실무에서 글로벌 로딩 전략은 모두 지연 로딩
+            // 최적화가 필요한 곳은 페치 조인 적용
+            // 모든 것을 페치 조인으로 해결할 수는 없다.
+            // 페치 조인은 객체 그래프를 유지할 때 사용하면 효과적
+            // '여러 테이블을 조인해서 엔티티가 가진 모양이 아닌 전혀 다른 결과'를 내야 하면, 페치 조인 보다는 일반 조인을 사용하고 필요한 데이터들만 조회해서 DTO로 반환하는 것이 효과적
+
+            // 엔티티 직접 사용 - 기본 키 값.
+//            String query = "select m from Member m where m = :member "; //엔티티를 파라미터로 전달
+
+//            Member findMember = em.createQuery(query, Member.class)
+//                    .setParameter("member", member1)
+//                    .getSingleResult();
+//
+//            System.out.println("findMember = " + findMember);
+
+//            String query = "select m from Member m where m.id = :memberId "; //식별자를 직접 전달
+//
+//            Member findMember = em.createQuery(query, Member.class)
+//                    .setParameter("memberId", member1.getId())
+//                    .getSingleResult();
+//
+//            System.out.println("findMember = " + findMember);
+
+            String query = "select m from Member m where m.team = :team "; //엔티티 직접 사용 - 외래 키 값
+
+            List<Member> members = em.createQuery(query, Member.class)
+                    .setParameter("team", teamA)
                     .getResultList();
 
-            for(Team team : result) {
-                System.out.println("team = " + team.getName() + ", team = " + team);
-                for (Member member : team.getMembers()) {
-                    //페치 조인으로 팀과 회원을 함께 조회해서 지연 로딩 발생 안함
-                    System.out.println("-> username = " + member.getUsername()+ ", member = " + member);
-                }
+            for (Member member : members) {
+                System.out.println("members = " + members);
             }
+
 
             tx.commit();
         } catch (Exception e) {
