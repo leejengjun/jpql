@@ -249,7 +249,7 @@ public class JpaMain {
 //            //회원 100명 -> N + 1 문제 발생.
 //            // N + 1 문제를 해결하기 위해서는 '페치 조인'
 
-            // 페치 조인 실무에서 많이 씀!
+            // **********************페치 조인 실무에서 많이 씀! ************************************
 //            String query = "select m from Member m join fetch m.team";
 //
 //            List<Member> result = em.createQuery(query, Member.class)
